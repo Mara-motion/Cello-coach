@@ -1,9 +1,16 @@
 {
-  "name": "Cello Coach",
+  "name": "Cello Coach — В непогоду",
   "short_name": "Cello Coach",
+  "description": "Мобильный тренажёр интонации для виолончели",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#11110f",
-  "theme_color": "#151515",
-  "description": "Тренажёр интонации для виолончели по MusicXML"
+  "orientation": "any",
+  "background_color": "#11100e",
+  "theme_color": "#11100e",
+  "lang": "ru",
+  "icons": [
+    {"src":"icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  ]
 }

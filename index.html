@@ -1,132 +1,194 @@
 <!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#151515" />
-  <title>Cello Coach — тренажёр интонации</title>
-  <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="styles.css" />
-  <script defer src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@2.2.0/build/opensheetmusicdisplay.min.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#11100e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Cello Coach">
+  <title>Cello Coach — В непогоду</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="styles.css">
   <script defer src="app.js"></script>
 </head>
 <body>
   <main class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">CELLO COACH · MVP 0.1</p>
-        <h1>Играй — партитура следует за тобой</h1>
-        <p class="subtitle">Загрузи MusicXML, включи микрофон и двигайся дальше только после чисто сыгранной ноты.</p>
+        <p class="eyebrow">CELLO COACH · MOBILE 0.3</p>
+        <h1>«В непогоду»</h1>
       </div>
-      <div class="status-pill" id="micStatus">Микрофон выключен</div>
+      <div id="micBadge" class="status-pill">микрофон выкл.</div>
     </header>
 
-    <section class="controls card">
-      <div class="file-row">
-        <label class="file-button">
-          <input id="scoreFile" type="file" accept=".musicxml,.xml,.mxl" />
-          <span>Загрузить MusicXML</span>
-        </label>
-        <button id="loadDemo" type="button" class="secondary">Демо-партитура</button>
-        <button id="startMic" type="button" class="primary">Включить микрофон</button>
+    <section id="photoSetup" class="card setup-card">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">НОТЫ ОСТАЮТСЯ НА ТЕЛЕФОНЕ</p>
+          <h2>Добавь две страницы партитуры</h2>
+        </div>
+        <span id="photoCount" class="mini-pill">0 / 2</span>
       </div>
-
-      <div class="settings-grid">
-        <label>
-          <span>Допуск по интонации</span>
-          <div class="inline-control">
-            <input id="tolerance" type="range" min="5" max="50" step="1" value="20" />
-            <output id="toleranceValue">±20 ¢</output>
-          </div>
+      <p class="muted">Фотографии сохраняются только в памяти этого браузера (IndexedDB) и не загружаются в GitHub или на сервер.</p>
+      <div class="photo-pickers">
+        <label class="file-tile">
+          <input id="page1Input" type="file" accept="image/*">
+          <span class="file-title">Страница 1</span>
+          <span id="page1State" class="file-state">выбрать из галереи</span>
         </label>
-        <label>
-          <span>Удерживать ноту</span>
-          <div class="inline-control">
-            <input id="holdMs" type="range" min="100" max="1000" step="50" value="300" />
-            <output id="holdValue">300 мс</output>
-          </div>
+        <label class="file-tile">
+          <input id="page2Input" type="file" accept="image/*">
+          <span class="file-title">Страница 2</span>
+          <span id="page2State" class="file-state">выбрать из галереи</span>
         </label>
-        <label>
-          <span>Калибровка A4</span>
-          <div class="inline-control">
-            <input id="concertA" type="range" min="415" max="445" step="1" value="440" />
-            <output id="concertAValue">440 Гц</output>
-          </div>
-        </label>
+      </div>
+      <div class="button-row">
+        <button id="clearPhotos" type="button" class="quiet danger">Удалить фото с телефона</button>
       </div>
     </section>
 
-    <section class="practice-grid">
-      <div class="card note-card">
+    <section class="card score-card">
+      <div class="score-toolbar">
+        <button id="prevLine" type="button" class="square" aria-label="Предыдущая строка">←</button>
+        <div class="line-label">
+          <strong id="lineTitle">Строка 1 из 17</strong>
+          <span id="lineStatus">добавь фотографии</span>
+        </div>
+        <button id="nextLine" type="button" class="square" aria-label="Следующая строка">→</button>
+      </div>
+
+      <div id="canvasWrap" class="score-scroll" aria-label="Фрагмент партитуры">
+        <canvas id="scoreCanvas"></canvas>
+        <div id="scoreEmpty" class="score-empty">Здесь появится строка нот после загрузки страницы.</div>
+      </div>
+      <p class="scroll-hint">Строка увеличена: можно листать её пальцем влево и вправо. При переходе по нотам приложение старается держать текущую позицию в центре.</p>
+
+      <div class="mode-tabs" role="tablist" aria-label="Режим">
+        <button id="practiceTab" type="button" class="tab active">Тренировка</button>
+        <button id="teachTab" type="button" class="tab">Обучить строку</button>
+      </div>
+    </section>
+
+    <section id="practicePanel" class="practice-stack">
+      <article class="card pitch-card">
         <div class="note-meta">
           <span>Сейчас сыграй</span>
-          <span id="progressText">0 / 0</span>
+          <span id="noteProgress">0 / 0</span>
         </div>
         <div id="targetNote" class="target-note">—</div>
-        <div id="targetFreq" class="target-freq">Загрузи партитуру</div>
+        <div id="targetFreq" class="target-freq">Сначала обучи эту строку</div>
 
-        <div class="tuner-wrap" aria-label="Индикатор точности интонации">
+        <div class="tuner" aria-live="polite">
           <div class="tuner-scale">
-            <div class="tick left">−50¢</div>
-            <div class="tick center">0</div>
-            <div class="tick right">+50¢</div>
-            <div class="tuner-good-zone"></div>
-            <div id="tunerNeedle" class="tuner-needle"></div>
+            <span class="tick tick-left">−50¢</span>
+            <span class="tick tick-center">0</span>
+            <span class="tick tick-right">+50¢</span>
+            <div id="goodZone" class="good-zone"></div>
+            <div id="needle" class="needle"></div>
           </div>
-          <div id="pitchReadout" class="pitch-readout">Жду звук…</div>
-          <div id="qualityText" class="quality-text">—</div>
+          <div id="pitchReadout" class="pitch-readout">Микрофон выключен</div>
+          <div id="quality" class="quality">—</div>
           <div class="hold-track"><div id="holdFill" class="hold-fill"></div></div>
         </div>
 
-        <div class="nav-row">
-          <button id="prevNote" type="button" class="secondary">← Назад</button>
-          <button id="nextNote" type="button" class="secondary">Вперёд →</button>
+        <button id="micButton" type="button" class="primary mic-main">Включить микрофон</button>
+
+        <div class="button-grid three">
+          <button id="prevNote" type="button">← нота</button>
+          <button id="skipNote" type="button">пропустить</button>
+          <button id="nextNote" type="button">нота →</button>
         </div>
-      </div>
+      </article>
 
-      <div class="card stats-card">
-        <h2>Сессия</h2>
-        <dl>
-          <div><dt>Засчитано нот</dt><dd id="statAccepted">0</dd></div>
-          <div><dt>Средняя ошибка</dt><dd id="statAvg">—</dd></div>
-          <div><dt>Чаще</dt><dd id="statBias">—</dd></div>
-          <div><dt>Текущая частота</dt><dd id="detectedFreq">—</dd></div>
-        </dl>
-        <button id="resetStats" type="button" class="ghost">Сбросить статистику</button>
+      <article class="card compact-card">
+        <details>
+          <summary>Точность и диагностика</summary>
+          <div class="settings">
+            <label>
+              <span>Допуск <output id="tolOut">±22¢</output></span>
+              <input id="tolerance" type="range" min="8" max="40" value="22" step="1">
+            </label>
+            <label>
+              <span>Удержание <output id="holdOut">160 мс</output></span>
+              <input id="holdMs" type="range" min="80" max="500" value="160" step="20">
+            </label>
+            <label>
+              <span>Калибровка A4 <output id="aOut">440 Гц</output></span>
+              <input id="concertA" type="range" min="430" max="445" value="440" step="1">
+            </label>
+          </div>
 
-        <details class="test-box">
-          <summary>Тест без микрофона</summary>
-          <p>Можно проверить механику перехода по нотам.</p>
-          <div class="test-buttons">
-            <button type="button" data-test-cents="-25">−25¢</button>
-            <button type="button" data-test-cents="0">Чисто</button>
-            <button type="button" data-test-cents="25">+25¢</button>
+          <dl class="stats">
+            <div><dt>Слышу</dt><dd id="heardStat">—</dd></div>
+            <div><dt>Уверенность</dt><dd id="confStat">—</dd></div>
+            <div><dt>Засчитано</dt><dd id="acceptedStat">0</dd></div>
+            <div><dt>Средняя ошибка</dt><dd id="avgStat">—</dd></div>
+            <div><dt>Тенденция</dt><dd id="biasStat">—</dd></div>
+          </dl>
+
+          <div class="fix-box">
+            <p>Если текущая нота в разметке неверна:</p>
+            <div class="button-grid four">
+              <button id="octDownCurrent" type="button">−8va</button>
+              <button id="flatCurrent" type="button">−½</button>
+              <button id="sharpCurrent" type="button">+½</button>
+              <button id="octUpCurrent" type="button">+8va</button>
+            </div>
           </div>
         </details>
-      </div>
+      </article>
     </section>
 
-    <section class="score-card card">
-      <div class="score-header">
-        <div>
-          <p class="eyebrow">ПАРТИТУРА</p>
-          <h2 id="scoreTitle">Пока ничего не загружено</h2>
+    <section id="teachPanel" class="card teach-card hidden">
+      <p class="eyebrow">ОДИН РАЗ ДЛЯ КАЖДОЙ СТРОКИ</p>
+      <h2>Научи приложение порядку нот</h2>
+      <p class="muted">Играй эту строку медленно по одной ноте. Ритм пока не важен. Между одинаковыми соседними нотами сделай короткую переатаку.</p>
+
+      <button id="teachMic" type="button" class="primary">Включить микрофон</button>
+      <button id="recordTeach" type="button" class="secondary">Начать запись строки</button>
+      <div id="teachMessage" class="teach-message">Записанных нот пока нет.</div>
+
+      <div id="capturedNotes" class="note-chips" aria-live="polite"></div>
+      <p class="muted small">Если приложение ошиблось, коснись нужной записанной ноты и исправь её кнопками ниже.</p>
+      <div class="button-grid four">
+        <button id="octDownTeach" type="button">−8va</button>
+        <button id="flatTeach" type="button">−½</button>
+        <button id="sharpTeach" type="button">+½</button>
+        <button id="octUpTeach" type="button">+8va</button>
+      </div>
+      <div class="button-grid two">
+        <button id="undoTeach" type="button">Удалить последнюю</button>
+        <button id="clearTeach" type="button" class="quiet danger">Очистить строку</button>
+      </div>
+      <button id="finishTeach" type="button" class="primary">Сохранить и тренироваться</button>
+    </section>
+
+    <section class="card data-card">
+      <details>
+        <summary>Резервная копия и установка</summary>
+        <p class="muted">Разметка нот хранится локально. Экспорт JSON пригодится, если захочешь прислать мне уже обученные строки или перенести их на другой телефон.</p>
+        <div class="button-grid two">
+          <button id="exportData" type="button">Экспорт JSON</button>
+          <label class="file-button"><input id="importData" type="file" accept="application/json,.json"><span>Импорт JSON</span></label>
         </div>
-        <p id="scoreHint">Поддерживается монодическая партия виолончели в MusicXML.</p>
-      </div>
-      <div id="osmdContainer" class="score-container">
-        <div class="empty-score">Здесь появятся ноты.</div>
-      </div>
+        <button id="resetAll" type="button" class="quiet danger wide">Стереть разметку всех строк</button>
+        <hr>
+        <button id="installButton" type="button" class="secondary wide hidden">Установить Cello Coach</button>
+        <p id="installHelp" class="muted small">После публикации на GitHub Pages сайт можно добавить на главный экран телефона. На iPhone: «Поделиться» → «На экран Домой».</p>
+      </details>
     </section>
 
-    <section class="card help-card">
-      <h2>Как заниматься</h2>
+    <section class="card quickstart">
+      <h2>Первый тест</h2>
       <ol>
-        <li>Экспортируй партию виолончели из MuseScore / Sibelius / Finale в <strong>MusicXML</strong>.</li>
-        <li>Открой эту страницу через <strong>localhost</strong> или HTTPS — иначе браузер может не дать доступ к микрофону.</li>
-        <li>Загрузи файл, включи микрофон и играй. Нота засчитывается, если высота держится внутри выбранного допуска.</li>
+        <li>Добавь обе фотографии нот.</li>
+        <li>Открой <strong>строку 1</strong> → «Обучить строку».</li>
+        <li>Включи микрофон, начни запись и медленно сыграй строку.</li>
+        <li>Сохрани и перейди в «Тренировку» — приложение будет ждать чистого попадания и двигаться дальше.</li>
       </ol>
-      <p class="small">Первый MVP лучше всего работает с одной мелодической линией без двойных нот. Для реальных занятий на виолончели следующим шагом стоит добавить устойчивость к вибрато, атакам смычка, паузам и повторам одной и той же ноты.</p>
+      <p class="muted small">Если распознавание ведёт себя странно, сделай скрин блока «Точность и диагностика» во время игры — по значениям «Слышу» и «Уверенность» можно будет быстро подкрутить алгоритм.</p>
     </section>
   </main>
 </body>
