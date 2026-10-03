@@ -113,6 +113,23 @@
   function setMidi(midi){ midi=Math.max(36,Math.min(83,midi)); const pc=(midi%12+12)%12,oct=Math.floor(midi/12)-1; els.noteName.value=String(pc); els.octave.value=String(Math.max(2,Math.min(5,oct))); updateTarget(); resetTracking(); }
   function settingsUI(){ els.tolOut.textContent=`±${els.tolerance.value}¢`;els.holdOut.textContent=`${els.holdMs.value} мс`;els.aOut.textContent=`${els.concertA.value} Гц`;const p=Number(els.tolerance.value);els.goodZone.style.left=`${50-p}%`;els.goodZone.style.right=`${50-p}%`;updateTarget(); }
   function resetHold(){ state.stableSince=null;state.centsWindow=[];els.holdFill.style.width='0%'; }
+
+  // Clear only the pitch smoother between two score notes. In v0.6 the 7-frame
+  // median still contained the previous note, which could delay a nearby next
+  // note by 200–400 ms (especially noticeable around notes 10 → 11).
+  function prepareNextSequenceNote(){
+    resetHold();
+    state.pitchHistory=[];
+    state.pendingJump=null;
+    state.lastStableLog=null;
+    state.lastStableAt=0;
+    state.rejectedFrames=0;
+    state.silenceFrames=0;
+    if(els.stabilityHint) els.stabilityHint.textContent='';
+    if(els.rawStat) els.rawStat.textContent='—';
+    if(els.stableStat) els.stableStat.textContent='—';
+  }
+
   function resetTracking(){ resetHold(); state.pitchHistory=[]; state.pendingJump=null; state.lastStableLog=null; state.lastStableAt=0; state.rejectedFrames=0; state.waitingForChange=false;state.lastAcceptedFreq=null;state.silenceFrames=0; if(els.stabilityHint)els.stabilityHint.textContent=''; if(els.rawStat)els.rawStat.textContent='—'; if(els.stableStat)els.stableStat.textContent='—'; }
   function resetTuner(){ resetTracking();els.needle.style.left='50%';els.pitchReadout.textContent=state.micOn?'Слушаю…':'Микрофон выключен';setQuality('—');els.heardStat.textContent='—';els.confStat.textContent='—'; }
   function updateStats(){ els.acceptedStat.textContent=String(state.accepted); if(!state.centsSamples.length){els.avgStat.textContent='—';return;} const avg=state.centsSamples.reduce((s,x)=>s+Math.abs(x),0)/state.centsSamples.length;els.avgStat.textContent=`${avg.toFixed(1)}¢`; }
@@ -198,7 +215,11 @@
     if(Math.abs(cents)>700) els.pitchReadout.textContent=`Слышу ${midiToLabel(heard)}`;
     else els.pitchReadout.textContent=`${cents>=0?'+':''}${cents.toFixed(0)}¢`;
 
-    const tol=Number(els.tolerance.value),hold=Number(els.holdMs.value);
+    const tol=Number(els.tolerance.value);
+    // The manual tuner keeps the user's hold setting. In score-following mode
+    // short notes need a faster confirmation or the app feels one note behind.
+    // 95 ms still requires multiple pitch frames, so a single glitch is not enough.
+    const hold=state.sequenceMode ? Math.min(Number(els.holdMs.value),95) : Number(els.holdMs.value);
     if(Math.abs(cents)<=tol){
       if(state.stableSince==null) state.stableSince=now;
       state.centsWindow.push(cents); if(state.centsWindow.length>9) state.centsWindow.shift();
@@ -209,14 +230,22 @@
         state.accepted++;state.centsSamples.push(med);if(state.centsSamples.length>200)state.centsSamples.shift();updateStats();
         setQuality('Засчитано','good');
         const acceptedFreq=freq;
-        if(state.sequenceMode){ advanceSequence(targetMidi); state.waitingForChange=!state.finished; state.lastAcceptedFreq=acceptedFreq; }
-        else { resetHold(); state.waitingForChange=true;state.lastAcceptedFreq=acceptedFreq; }
+        if(state.sequenceMode){
+          advanceSequence(targetMidi);
+          state.waitingForChange=!state.finished;
+          state.lastAcceptedFreq=acceptedFreq;
+          // Critical transition fix: do not let the previous note remain in the
+          // median window after the score has already advanced.
+          if(!state.finished) prepareNextSequenceNote();
+        } else { resetHold(); state.waitingForChange=true;state.lastAcceptedFreq=acceptedFreq; }
       }
     } else { resetHold(); setQuality(state.sequenceMode?'Не эта нота':(cents<0?'Низко':'Высоко'),Math.abs(cents)>45?'bad':'warn'); }
   }
 
   function audioLoop(now){
-    state.raf=requestAnimationFrame(audioLoop); if(!state.analyser||now-state.lastFrame<70) return; state.lastFrame=now;
+    state.raf=requestAnimationFrame(audioLoop);
+    const frameMs=state.sequenceMode?55:70;
+    if(!state.analyser||now-state.lastFrame<frameMs) return; state.lastFrame=now;
     state.analyser.getFloatTimeDomainData(state.buffer); const p=detectPitchYIN(state.buffer,state.audioContext.sampleRate); updatePitch(p.frequency,p.confidence,now);
   }
 
