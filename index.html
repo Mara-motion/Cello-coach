@@ -17,7 +17,7 @@
   <main class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">CELLO COACH · MOBILE 0.5</p>
+        <p class="eyebrow">CELLO COACH · MOBILE 0.6</p>
         <h1>«В непогоду»</h1>
         <p class="subtitle">Г. Гольтерман · Schlechtes Wetter · Op. 104 №3</p>
       </div>
@@ -49,16 +49,44 @@
       <p class="muted tiny">Если Chrome на телефоне не показывает PDF прямо внутри карточки, нажми «Открыть партитуру отдельно» — микрофонный тренажёр останется в этой вкладке.</p>
     </section>
 
+
+    <section class="card follow-card">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">АВТОСЛЕДОВАНИЕ · BETA</p>
+          <h2>Первые 12 нот</h2>
+        </div>
+        <span id="seqCounter" class="mini-pill">1 / 12</span>
+      </div>
+      <p class="muted small">Играй прямо по партитуре. После чистого попадания приложение само перейдёт к следующей ноте. На первом проходе оно также запомнит знак альтерации для каждой позиции — отдельного «обучения строки» нет.</p>
+      <div id="seqChips" class="seq-chips" aria-label="Последовательность нот"></div>
+      <div class="seq-now">
+        <span class="muted tiny">Сейчас</span>
+        <strong id="seqTarget">E4</strong>
+        <span id="seqLockState" class="muted tiny">знак определится при первом чистом попадании</span>
+      </div>
+      <div class="seq-actions">
+        <button id="seqBack" type="button" class="secondary">← Назад</button>
+        <button id="seqSkip" type="button" class="secondary">Пропустить</button>
+        <button id="seqRestart" type="button" class="secondary">Сначала</button>
+      </div>
+      <div class="seq-actions compact">
+        <button id="seqToggle" type="button" class="link-button-like">Перейти в ручной тюнер</button>
+        <button id="seqClearLocks" type="button" class="link-button-like danger-link">Сбросить запомненные знаки</button>
+      </div>
+      <p id="seqMessage" class="muted tiny" aria-live="polite"></p>
+    </section>
+
     <section class="card pitch-card">
       <div class="section-head">
         <div>
           <p class="eyebrow">ПРОВЕРКА ИНТОНАЦИИ</p>
-          <h2>Сыграй выбранную ноту</h2>
+          <h2 id="pitchTitle">Сыграй текущую ноту</h2>
         </div>
         <span id="targetFreqMini" class="mini-pill">440.0 Гц</span>
       </div>
 
-      <div class="target-picker">
+      <div id="manualPicker" class="target-picker hidden">
         <label>
           <span>Нота</span>
           <select id="noteName">
@@ -119,10 +147,10 @@
     </section>
 
     <section class="card next-card">
-      <p class="eyebrow">СЛЕДУЮЩИЙ СЛОЙ</p>
-      <h2>Автоследование по всей пьесе</h2>
-      <p class="muted">Ручное «обучение строк» из прошлой версии убрано. Следующий шаг — встроить в приложение готовую последовательность нот произведения, чтобы курсор сам шёл по партитуре и переходил дальше только после правильной ноты.</p>
-      <p class="muted small">В версии 0.5 тюнер получил новый детектор высоты YIN, медианное сглаживание и защиту от ложных субгармоник/обертонов — это особенно важно для виолончели.</p>
+      <p class="eyebrow">ЧТО ТЕСТИРУЕМ В 0.6</p>
+      <h2>Ощущение «сыграла → дальше»</h2>
+      <p class="muted">Пока встроен только первый тестовый фрагмент из 12 нот. Если механика удобна, следующим обновлением расширим последовательность на системы и затем на всю пьесу.</p>
+      <p class="muted small">Стабильный YIN-детектор из версии 0.5 сохранён. Запомненные знаки альтерации хранятся только в браузере телефона.</p>
     </section>
 
     <section class="card install-card">

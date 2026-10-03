@@ -1,7 +1,7 @@
 {
   "name":"Cello Coach — В непогоду",
   "short_name":"Cello Coach",
-  "description":"Мобильный тренажёр интонации для виолончели",
+  "description":"Мобильный тренажёр интонации и автоследования для виолончели",
   "start_url":"./",
   "scope":"./",
   "display":"standalone",
