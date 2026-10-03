@@ -17,7 +17,7 @@
   <main class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">CELLO COACH · MOBILE 0.6.1</p>
+        <p class="eyebrow">CELLO COACH · MOBILE 0.6.2</p>
         <h1>«В непогоду»</h1>
         <p class="subtitle">Г. Гольтерман · Schlechtes Wetter · Op. 104 №3</p>
       </div>
@@ -58,12 +58,12 @@
         </div>
         <span id="seqCounter" class="mini-pill">1 / 12</span>
       </div>
-      <p class="muted small">Играй прямо по партитуре. После чистого попадания приложение само перейдёт к следующей ноте. На первом проходе оно также запомнит знак альтерации для каждой позиции — отдельного «обучения строки» нет.</p>
+      <p class="muted small">Играй прямо по партитуре. После чистого попадания приложение само перейдёт к следующей ноте. В beta-фрагменте неоднозначный знак определяется по текущему звуку заново на каждом проходе — приложение больше не сохраняет случайный соседний полутон после одной атаки.</p>
       <div id="seqChips" class="seq-chips" aria-label="Последовательность нот"></div>
       <div class="seq-now">
         <span class="muted tiny">Сейчас</span>
         <strong id="seqTarget">E4</strong>
-        <span id="seqLockState" class="muted tiny">знак определится при первом чистом попадании</span>
+        <span id="seqLockState" class="muted tiny">знак определяется заново на каждом проходе</span>
       </div>
       <div class="seq-actions">
         <button id="seqBack" type="button" class="secondary">← Назад</button>
@@ -72,7 +72,7 @@
       </div>
       <div class="seq-actions compact">
         <button id="seqToggle" type="button" class="link-button-like">Перейти в ручной тюнер</button>
-        <button id="seqClearLocks" type="button" class="link-button-like danger-link">Сбросить запомненные знаки</button>
+        <button id="seqClearLocks" type="button" class="link-button-like">Сбросить тестовый фрагмент</button>
       </div>
       <p id="seqMessage" class="muted tiny" aria-live="polite"></p>
     </section>
@@ -150,7 +150,7 @@
       <p class="eyebrow">ЧТО ТЕСТИРУЕМ В 0.6</p>
       <h2>Ощущение «сыграла → дальше»</h2>
       <p class="muted">Пока встроен только первый тестовый фрагмент из 12 нот. Если механика удобна, следующим обновлением расширим последовательность на системы и затем на всю пьесу.</p>
-      <p class="muted small">Стабильный YIN-детектор из версии 0.5 сохранён. Запомненные знаки альтерации хранятся только в браузере телефона.</p>
+      <p class="muted small">Стабильный YIN-детектор из версии 0.5 сохранён. В 0.6.2 убрано постоянное авто-запоминание знаков: оно могло зафиксировать соседний полутон на атаке и тормозить повторные проходы.</p>
     </section>
 
     <section class="card install-card">

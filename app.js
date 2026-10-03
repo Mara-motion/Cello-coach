@@ -4,8 +4,6 @@
   const $ = id => document.getElementById(id);
   const SCORE_URL = 'https://thecellist.ru/wp-content/uploads/2020/04/cp-Goltermann-G.-Stormy-Weather.pdf';
   const NOTE_NAMES = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
-  const LOCK_KEY = 'cello-coach-v06-fragment1-locks';
-
   // Test fragment: first 12 staff positions from the opening phrase.
   // On the first pass an unresolved position accepts the nearest chromatic
   // form of the written staff note (flat / natural / sharp), then remembers it.
@@ -25,22 +23,14 @@
     seqCounter:$('seqCounter'),seqChips:$('seqChips'),seqTarget:$('seqTarget'),seqLockState:$('seqLockState'),seqBack:$('seqBack'),seqSkip:$('seqSkip'),seqRestart:$('seqRestart'),seqToggle:$('seqToggle'),seqClearLocks:$('seqClearLocks'),seqMessage:$('seqMessage')
   };
 
-  function loadLocks(){
-    try {
-      const value = JSON.parse(localStorage.getItem(LOCK_KEY) || '[]');
-      return SEQUENCE.map((_,i) => Number.isInteger(value[i]) ? value[i] : null);
-    } catch { return SEQUENCE.map(()=>null); }
-  }
-
   const state={
     page:1,audioContext:null,analyser:null,source:null,stream:null,highpass:null,lowpass:null,buffer:null,raf:null,micOn:false,lastFrame:0,
     stableSince:null,centsWindow:[],accepted:0,centsSamples:[],deferredInstall:null,
     pitchHistory:[], pendingJump:null, lastStableLog:null, lastStableAt:0, rejectedFrames:0,
-    sequenceMode:true, seqIndex:0, locks:loadLocks(), finished:false,
-    waitingForChange:false,lastAcceptedFreq:null,silenceFrames:0
+    sequenceMode:true, seqIndex:0, finished:false,
+    waitingForRepeat:false,lastAcceptedFreq:null,lastAcceptedMidi:null,silenceFrames:0
   };
 
-  function saveLocks(){ localStorage.setItem(LOCK_KEY,JSON.stringify(state.locks)); }
   function pageUrl(page){ return `${SCORE_URL}#page=${page}&zoom=page-width&toolbar=0&navpanes=0`; }
   function setPage(page){ state.page=Math.max(1,Math.min(3,page)); els.scoreFrame.src=pageUrl(state.page); els.openScore.href=pageUrl(state.page); els.pageBadge.textContent=`стр. ${state.page}`; document.querySelectorAll('.page-btn').forEach(b=>b.classList.toggle('active',Number(b.dataset.page)===state.page)); }
   document.querySelectorAll('.page-btn').forEach(b=>b.addEventListener('click',()=>setPage(Number(b.dataset.page))));
@@ -56,12 +46,19 @@
   function setQuality(text,kind=''){ els.quality.textContent=text; els.quality.className='quality'; if(kind)els.quality.classList.add(`${kind}-text`); }
 
   function currentSeq(){ return SEQUENCE[state.seqIndex]; }
-  function currentLock(){ return state.locks[state.seqIndex]; }
   function sequenceCandidates(){
-    const locked=currentLock();
-    if(Number.isInteger(locked)) return [locked];
     const b=currentSeq().base;
-    return [b-1,b,b+1];
+    let candidates=[b-1,b,b+1];
+    // During the transition to a different written staff position, never let
+    // the still-ringing previous pitch count as the new note. This avoids the
+    // C4 -> B3 overlap that made note 11 sticky in the beta fragment.
+    if(state.lastAcceptedMidi!=null && state.seqIndex>0){
+      const previousBase=SEQUENCE[state.seqIndex-1].base;
+      if(currentSeq().base!==previousBase){
+        candidates=candidates.filter(m=>m!==state.lastAcceptedMidi);
+      }
+    }
+    return candidates.length?candidates:[b];
   }
   function bestSequenceTarget(freq){
     let best=null;
@@ -80,31 +77,26 @@
       chip.className='seq-chip';
       if(i<state.seqIndex) chip.classList.add('done');
       if(i===state.seqIndex&&!state.finished) chip.classList.add('active');
-      const lock=state.locks[i];
-      chip.textContent=Number.isInteger(lock)?midiToLabel(lock):item.staff;
+      chip.textContent=item.staff;
       chip.title=`Нота ${i+1}`;
       chip.addEventListener('click',()=>{ state.seqIndex=i; state.finished=false; resetTracking(); renderSequence(); updateTarget(); });
       els.seqChips.appendChild(chip);
     });
     els.seqCounter.textContent=state.finished?`${SEQUENCE.length} / ${SEQUENCE.length}`:`${state.seqIndex+1} / ${SEQUENCE.length}`;
-    const lock=currentLock();
-    els.seqTarget.textContent=state.finished?'Готово':(Number.isInteger(lock)?midiToLabel(lock):currentSeq().staff);
-    els.seqLockState.textContent=state.finished?'тестовый фрагмент пройден':(Number.isInteger(lock)?'знак уже запомнен':'знак определится при первом чистом попадании');
+    els.seqTarget.textContent=state.finished?'Готово':currentSeq().staff;
+    els.seqLockState.textContent=state.finished?'тестовый фрагмент пройден':'в beta точный знак определяется заново при каждом проходе';
     els.seqBack.disabled=state.seqIndex===0;
     els.seqMessage.textContent=state.finished?'Фрагмент пройден. Нажми «Сначала», чтобы повторить.':'';
   }
 
   function updateTarget(){
     if(state.sequenceMode){
-      const lock=currentLock();
       if(state.finished){
         els.targetNote.textContent='✓'; els.targetFreq.textContent='фрагмент пройден'; els.targetFreqMini.textContent='готово'; return;
       }
-      if(Number.isInteger(lock)){
-        const f=midiToFreq(lock); els.targetNote.textContent=midiToLabel(lock); els.targetFreq.textContent=`${f.toFixed(1)} Гц`; els.targetFreqMini.textContent=`${state.seqIndex+1}/${SEQUENCE.length}`;
-      } else {
-        els.targetNote.textContent=currentSeq().staff; els.targetFreq.textContent='знак по партитуре'; els.targetFreqMini.textContent=`${state.seqIndex+1}/${SEQUENCE.length}`;
-      }
+      els.targetNote.textContent=currentSeq().staff;
+      els.targetFreq.textContent='позиция по партитуре';
+      els.targetFreqMini.textContent=`${state.seqIndex+1}/${SEQUENCE.length}`;
       return;
     }
     const midi=selectedMidi(),f=midiToFreq(midi); els.targetNote.textContent=midiToLabel(midi); els.targetFreq.textContent=`${f.toFixed(1)} Гц`; els.targetFreqMini.textContent=`${f.toFixed(1)} Гц`;
@@ -130,7 +122,7 @@
     if(els.stableStat) els.stableStat.textContent='—';
   }
 
-  function resetTracking(){ resetHold(); state.pitchHistory=[]; state.pendingJump=null; state.lastStableLog=null; state.lastStableAt=0; state.rejectedFrames=0; state.waitingForChange=false;state.lastAcceptedFreq=null;state.silenceFrames=0; if(els.stabilityHint)els.stabilityHint.textContent=''; if(els.rawStat)els.rawStat.textContent='—'; if(els.stableStat)els.stableStat.textContent='—'; }
+  function resetTracking(){ resetHold(); state.pitchHistory=[]; state.pendingJump=null; state.lastStableLog=null; state.lastStableAt=0; state.rejectedFrames=0; state.waitingForRepeat=false;state.lastAcceptedFreq=null;state.lastAcceptedMidi=null;state.silenceFrames=0; if(els.stabilityHint)els.stabilityHint.textContent=''; if(els.rawStat)els.rawStat.textContent='—'; if(els.stableStat)els.stableStat.textContent='—'; }
   function resetTuner(){ resetTracking();els.needle.style.left='50%';els.pitchReadout.textContent=state.micOn?'Слушаю…':'Микрофон выключен';setQuality('—');els.heardStat.textContent='—';els.confStat.textContent='—'; }
   function updateStats(){ els.acceptedStat.textContent=String(state.accepted); if(!state.centsSamples.length){els.avgStat.textContent='—';return;} const avg=state.centsSamples.reduce((s,x)=>s+Math.abs(x),0)/state.centsSamples.length;els.avgStat.textContent=`${avg.toFixed(1)}¢`; }
 
@@ -183,8 +175,7 @@
     return {frequency:stableFreq,confidence,filtered:false};
   }
 
-  function advanceSequence(resolvedMidi){
-    if(!Number.isInteger(currentLock())){ state.locks[state.seqIndex]=resolvedMidi; saveLocks(); }
+  function advanceSequence(){
     if(state.seqIndex>=SEQUENCE.length-1){ state.finished=true; }
     else state.seqIndex++;
     renderSequence(); updateTarget(); resetHold();
@@ -192,17 +183,20 @@
 
   function updatePitch(rawFreq,confidence,now){
     if(!rawFreq||confidence<.56){
-      if(state.waitingForChange && !rawFreq){ state.silenceFrames++; if(state.silenceFrames>=2){ state.waitingForChange=false;state.silenceFrames=0; } }
+      if(state.waitingForRepeat && !rawFreq){ state.silenceFrames++; if(state.silenceFrames>=1){ state.waitingForRepeat=false;state.silenceFrames=0; } }
       els.heardStat.textContent='—'; els.confStat.textContent=confidence?`${Math.round(confidence*100)}%`:'—'; els.pitchReadout.textContent='Жду устойчивый звук…'; setQuality('—'); resetHold(); return;
     }
     const stable=stabilizePitch(rawFreq,confidence,now); if(!stable) return;
     const freq=stable.frequency,heard=nearestMidi(freq);
     els.heardStat.textContent=`${midiToLabel(heard)} · ${freq.toFixed(1)} Гц`; els.confStat.textContent=`${Math.round(confidence*100)}%`;
 
-    if(state.waitingForChange && state.lastAcceptedFreq){
+    // Only true repeated notes need a retrigger gate. Neighbouring notes no
+    // longer wait for a generic >55 cent movement; their expected pitch is
+    // enough to prove that the player moved on.
+    if(state.waitingForRepeat && state.lastAcceptedFreq){
       const moved=Math.abs(1200*Math.log2(freq/state.lastAcceptedFreq));
-      if(moved>55){ state.waitingForChange=false; state.silenceFrames=0; resetHold(); }
-      else { els.pitchReadout.textContent='Смени ноту…'; setQuality('Следующая нота','warn'); return; }
+      if(moved>55){ state.waitingForRepeat=false; state.silenceFrames=0; resetHold(); }
+      else { els.pitchReadout.textContent='Повтори атаку…'; setQuality('Та же нота ещё звучит','warn'); return; }
     }
 
     if(state.sequenceMode && state.finished){ els.pitchReadout.textContent='Фрагмент пройден';setQuality('✓','good');return; }
@@ -231,13 +225,17 @@
         setQuality('Засчитано','good');
         const acceptedFreq=freq;
         if(state.sequenceMode){
-          advanceSequence(targetMidi);
-          state.waitingForChange=!state.finished;
+          const acceptedIndex=state.seqIndex;
+          const nextIndex=acceptedIndex+1;
+          const repeatedWrittenNote=nextIndex<SEQUENCE.length && SEQUENCE[nextIndex].base===SEQUENCE[acceptedIndex].base;
           state.lastAcceptedFreq=acceptedFreq;
-          // Critical transition fix: do not let the previous note remain in the
-          // median window after the score has already advanced.
+          state.lastAcceptedMidi=targetMidi;
+          advanceSequence();
+          state.waitingForRepeat=!state.finished && repeatedWrittenNote;
+          // Do not let the previous note remain in the median window after the
+          // score has already advanced.
           if(!state.finished) prepareNextSequenceNote();
-        } else { resetHold(); state.waitingForChange=true;state.lastAcceptedFreq=acceptedFreq; }
+        } else { resetHold(); state.waitingForRepeat=true;state.lastAcceptedFreq=acceptedFreq;state.lastAcceptedMidi=targetMidi; }
       }
     } else { resetHold(); setQuality(state.sequenceMode?'Не эта нота':(cents<0?'Низко':'Высоко'),Math.abs(cents)>45?'bad':'warn'); }
   }
@@ -288,11 +286,12 @@
   els.seqSkip.addEventListener('click',()=>{if(state.finished)return;if(state.seqIndex>=SEQUENCE.length-1)state.finished=true;else state.seqIndex++;resetTracking();renderSequence();updateTarget();});
   els.seqRestart.addEventListener('click',()=>{state.seqIndex=0;state.finished=false;resetTracking();renderSequence();updateTarget();});
   els.seqToggle.addEventListener('click',()=>setSequenceMode(!state.sequenceMode));
-  els.seqClearLocks.addEventListener('click',()=>{if(confirm('Сбросить запомненные знаки для тестового фрагмента?')){state.locks=SEQUENCE.map(()=>null);saveLocks();state.seqIndex=0;state.finished=false;resetTracking();renderSequence();updateTarget();}});
+  els.seqClearLocks?.addEventListener('click',()=>{localStorage.removeItem('cello-coach-v06-fragment1-locks');state.seqIndex=0;state.finished=false;resetTracking();renderSequence();updateTarget();});
   window.addEventListener('pagehide',()=>{if(state.micOn)stopMic();});
   window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();state.deferredInstall=e;els.installButton.classList.remove('hidden');els.installHelp.textContent='Можно установить приложение на главный экран одной кнопкой.';});
   els.installButton.addEventListener('click',async()=>{if(!state.deferredInstall)return;state.deferredInstall.prompt();await state.deferredInstall.userChoice;state.deferredInstall=null;els.installButton.classList.add('hidden');});
 
+  localStorage.removeItem('cello-coach-v06-fragment1-locks');
   setPage(1);renderSequence();setSequenceMode(true);settingsUI();updateStats();
   if('serviceWorker'in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('./sw.js').catch(()=>{});
 })();
