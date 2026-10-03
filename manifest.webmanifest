@@ -1,0 +1,9 @@
+{
+  "name": "Cello Coach",
+  "short_name": "Cello Coach",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#11110f",
+  "theme_color": "#151515",
+  "description": "Тренажёр интонации для виолончели по MusicXML"
+}

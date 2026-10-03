@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#151515" />
+  <title>Cello Coach — тренажёр интонации</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@2.2.0/build/opensheetmusicdisplay.min.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">CELLO COACH · MVP 0.1</p>
+        <h1>Играй — партитура следует за тобой</h1>
+        <p class="subtitle">Загрузи MusicXML, включи микрофон и двигайся дальше только после чисто сыгранной ноты.</p>
+      </div>
+      <div class="status-pill" id="micStatus">Микрофон выключен</div>
+    </header>
+
+    <section class="controls card">
+      <div class="file-row">
+        <label class="file-button">
+          <input id="scoreFile" type="file" accept=".musicxml,.xml,.mxl" />
+          <span>Загрузить MusicXML</span>
+        </label>
+        <button id="loadDemo" type="button" class="secondary">Демо-партитура</button>
+        <button id="startMic" type="button" class="primary">Включить микрофон</button>
+      </div>
+
+      <div class="settings-grid">
+        <label>
+          <span>Допуск по интонации</span>
+          <div class="inline-control">
+            <input id="tolerance" type="range" min="5" max="50" step="1" value="20" />
+            <output id="toleranceValue">±20 ¢</output>
+          </div>
+        </label>
+        <label>
+          <span>Удерживать ноту</span>
+          <div class="inline-control">
+            <input id="holdMs" type="range" min="100" max="1000" step="50" value="300" />
+            <output id="holdValue">300 мс</output>
+          </div>
+        </label>
+        <label>
+          <span>Калибровка A4</span>
+          <div class="inline-control">
+            <input id="concertA" type="range" min="415" max="445" step="1" value="440" />
+            <output id="concertAValue">440 Гц</output>
+          </div>
+        </label>
+      </div>
+    </section>
+
+    <section class="practice-grid">
+      <div class="card note-card">
+        <div class="note-meta">
+          <span>Сейчас сыграй</span>
+          <span id="progressText">0 / 0</span>
+        </div>
+        <div id="targetNote" class="target-note">—</div>
+        <div id="targetFreq" class="target-freq">Загрузи партитуру</div>
+
+        <div class="tuner-wrap" aria-label="Индикатор точности интонации">
+          <div class="tuner-scale">
+            <div class="tick left">−50¢</div>
+            <div class="tick center">0</div>
+            <div class="tick right">+50¢</div>
+            <div class="tuner-good-zone"></div>
+            <div id="tunerNeedle" class="tuner-needle"></div>
+          </div>
+          <div id="pitchReadout" class="pitch-readout">Жду звук…</div>
+          <div id="qualityText" class="quality-text">—</div>
+          <div class="hold-track"><div id="holdFill" class="hold-fill"></div></div>
+        </div>
+
+        <div class="nav-row">
+          <button id="prevNote" type="button" class="secondary">← Назад</button>
+          <button id="nextNote" type="button" class="secondary">Вперёд →</button>
+        </div>
+      </div>
+
+      <div class="card stats-card">
+        <h2>Сессия</h2>
+        <dl>
+          <div><dt>Засчитано нот</dt><dd id="statAccepted">0</dd></div>
+          <div><dt>Средняя ошибка</dt><dd id="statAvg">—</dd></div>
+          <div><dt>Чаще</dt><dd id="statBias">—</dd></div>
+          <div><dt>Текущая частота</dt><dd id="detectedFreq">—</dd></div>
+        </dl>
+        <button id="resetStats" type="button" class="ghost">Сбросить статистику</button>
+
+        <details class="test-box">
+          <summary>Тест без микрофона</summary>
+          <p>Можно проверить механику перехода по нотам.</p>
+          <div class="test-buttons">
+            <button type="button" data-test-cents="-25">−25¢</button>
+            <button type="button" data-test-cents="0">Чисто</button>
+            <button type="button" data-test-cents="25">+25¢</button>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <section class="score-card card">
+      <div class="score-header">
+        <div>
+          <p class="eyebrow">ПАРТИТУРА</p>
+          <h2 id="scoreTitle">Пока ничего не загружено</h2>
+        </div>
+        <p id="scoreHint">Поддерживается монодическая партия виолончели в MusicXML.</p>
+      </div>
+      <div id="osmdContainer" class="score-container">
+        <div class="empty-score">Здесь появятся ноты.</div>
+      </div>
+    </section>
+
+    <section class="card help-card">
+      <h2>Как заниматься</h2>
+      <ol>
+        <li>Экспортируй партию виолончели из MuseScore / Sibelius / Finale в <strong>MusicXML</strong>.</li>
+        <li>Открой эту страницу через <strong>localhost</strong> или HTTPS — иначе браузер может не дать доступ к микрофону.</li>
+        <li>Загрузи файл, включи микрофон и играй. Нота засчитывается, если высота держится внутри выбранного допуска.</li>
+      </ol>
+      <p class="small">Первый MVP лучше всего работает с одной мелодической линией без двойных нот. Для реальных занятий на виолончели следующим шагом стоит добавить устойчивость к вибрато, атакам смычка, паузам и повторам одной и той же ноты.</p>
+    </section>
+  </main>
+</body>
+</html>
